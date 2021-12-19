@@ -1,4 +1,5 @@
 # go-mc-ms-auth
+### GOlang MineCraft MicroSoft AUTHenticator
 [![Go Reference](https://pkg.go.dev/badge/github.com/maxsupermanhd/go-mc-ms-auth.svg)](https://pkg.go.dev/github.com/maxsupermanhd/go-mc-ms-auth)
 [![Go Report Card](https://goreportcard.com/badge/github.com/maxsupermanhd/go-mc-ms-auth)](https://goreportcard.com/report/github.com/maxsupermanhd/go-mc-ms-auth)
 
