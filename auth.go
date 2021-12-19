@@ -496,5 +496,6 @@ func GetMCcredentials(CacheFilename, cid string) (bot.Auth, error) {
 	log.Println("Got MC profile")
 	log.Println("UUID: " + resauth.UUID)
 	log.Println("Name: " + resauth.Name)
+	resauth.AsTk = MCa.Token
 	return resauth, nil
 }
