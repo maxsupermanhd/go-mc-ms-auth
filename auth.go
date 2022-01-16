@@ -421,7 +421,7 @@ const DefaultCacheFilename = "./auth.cache"
 func GetMCcredentials(CacheFilename, cid string) (bot.Auth, error) {
 	var resauth bot.Auth
 	var MSa MSauth
-	if CacheFilename != "" {
+	if CacheFilename == "" {
 		CacheFilename = DefaultCacheFilename
 	}
 	if _, err := os.Stat(CacheFilename); os.IsNotExist(err) {
