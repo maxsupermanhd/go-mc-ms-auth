@@ -10,7 +10,7 @@ Package for getting Auth object from Microsoft to use with Tnze/go-mc.
 Example:
 
 ```go
-mauth, err := GMMAuth.GetMCcredentials("", "")
+mauth, err := GMMAuth.GetMCcredentials("./auth.cache", "88650e7e-efee-4857-b9a9-cf580a00ef43")
 if err != nil {
 	log.Print(err)
 	return
@@ -20,3 +20,7 @@ mcClient := bot.NewClient()
 mcClient.Auth = mauth
 // client can go brrr
 ```
+
+What is AzureAppId and how to get one: see issue #2\
+TLDR: you can use this one: `88650e7e-efee-4857-b9a9-cf580a00ef43`
+
