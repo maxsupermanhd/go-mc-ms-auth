@@ -31,43 +31,47 @@ const AzureClientIDEnvVar = "AzureClientID"
 
 // CheckRefreshMS Checks MSauth for expired token and refreshes if needed
 func CheckRefreshMS(auth *MSauth, cid string) error {
-	if auth.ExpiresAfter <= time.Now().Unix() {
-		if cid == "" {
-			cid = os.Getenv(AzureClientIDEnvVar)
-		}
-		MSdata := url.Values{
-			"client_id": {cid},
-			// "client_secret": {os.Getenv("AzureSecret")},
-			"refresh_token": {auth.RefreshToken},
-			"grant_type":    {"refresh_token"},
-			"redirect_uri":  {"https://login.microsoftonline.com/common/oauth2/nativeclient"},
-		}
-		MSresp, err := http.PostForm("https://login.live.com/oauth20_token.srf", MSdata)
-		if err != nil {
-			return err
-		}
-		var MSres map[string]interface{}
-		json.NewDecoder(MSresp.Body).Decode(&MSres)
-		MSresp.Body.Close()
-		if MSresp.StatusCode != 200 {
-			return fmt.Errorf("MS refresh attempt answered not HTTP200! Instead got %s and following json: %#v", MSresp.Status, MSres)
-		}
-		MSaccessToken, ok := MSres["access_token"].(string)
-		if !ok {
-			return errors.New("Access_token not found in response")
-		}
-		auth.AccessToken = MSaccessToken
-		MSrefreshToken, ok := MSres["refresh_token"].(string)
-		if !ok {
-			return errors.New("Refresh_token not found in response")
-		}
-		auth.RefreshToken = MSrefreshToken
-		MSexpireSeconds, ok := MSres["expires_in"].(float64)
-		if !ok {
-			return errors.New("Expires_in not found in response")
-		}
-		auth.ExpiresAfter = time.Now().Unix() + int64(MSexpireSeconds)
+	if auth.ExpiresAfter > time.Now().Unix() {
+		return nil
 	}
+	if cid == "" {
+		cid = os.Getenv(AzureClientIDEnvVar)
+	}
+	if auth.RefreshToken == "" {
+		return errors.New("MS access token expired and no refresh token provided")
+	}
+	MSdata := url.Values{
+		"client_id": {cid},
+		// "client_secret": {os.Getenv("AzureSecret")},
+		"refresh_token": {auth.RefreshToken},
+		"grant_type":    {"refresh_token"},
+		"redirect_uri":  {"https://login.microsoftonline.com/common/oauth2/nativeclient"},
+	}
+	MSresp, err := http.PostForm("https://login.live.com/oauth20_token.srf", MSdata)
+	if err != nil {
+		return err
+	}
+	var MSres map[string]interface{}
+	json.NewDecoder(MSresp.Body).Decode(&MSres)
+	MSresp.Body.Close()
+	if MSresp.StatusCode != 200 {
+		return fmt.Errorf("MS refresh attempt answered not HTTP200! Instead got %s and following json: %#v", MSresp.Status, MSres)
+	}
+	MSaccessToken, ok := MSres["access_token"].(string)
+	if !ok {
+		return errors.New("access_token not found in response")
+	}
+	auth.AccessToken = MSaccessToken
+	MSrefreshToken, ok := MSres["refresh_token"].(string)
+	if !ok {
+		return errors.New("refresh_token not found in response")
+	}
+	auth.RefreshToken = MSrefreshToken
+	MSexpireSeconds, ok := MSres["expires_in"].(float64)
+	if !ok {
+		return errors.New("expires_in not found in response")
+	}
+	auth.ExpiresAfter = time.Now().Unix() + int64(MSexpireSeconds)
 	return nil
 }
 
@@ -92,30 +96,30 @@ func AuthMSdevice(cid string) (MSauth, error) {
 	}
 	DeviceCode, ok := DeviceRes["device_code"].(string)
 	if !ok {
-		return auth, errors.New("Device code not found in response")
+		return auth, errors.New("device code not found in response")
 	}
 	UserCode, ok := DeviceRes["user_code"].(string)
 	if !ok {
-		return auth, errors.New("User code not found in response")
+		return auth, errors.New("user code not found in response")
 	}
 	log.Print("User code: ", UserCode)
 	VerificationURI, ok := DeviceRes["verification_uri"].(string)
 	if !ok {
-		return auth, errors.New("Verification URI not found in response")
+		return auth, errors.New("verification URI not found in response")
 	}
 	log.Print("Verification URI: ", VerificationURI)
 	ExpiresIn, ok := DeviceRes["expires_in"].(float64)
 	if !ok {
-		return auth, errors.New("Expires In not found in response")
+		return auth, errors.New("expires_in not found in response")
 	}
 	log.Print("Expires in: ", ExpiresIn, " seconds")
 	PoolInterval, ok := DeviceRes["interval"].(float64)
 	if !ok {
-		return auth, errors.New("Pooling interval not found in response")
+		return auth, errors.New("pooling interval not found in response")
 	}
 	UserMessage, ok := DeviceRes["message"].(string)
 	if !ok {
-		return auth, errors.New("Pooling interval not found in response")
+		return auth, errors.New("pooling interval not found in response")
 	}
 	log.Println(UserMessage)
 	time.Sleep(4 * time.Second)
@@ -137,34 +141,34 @@ func AuthMSdevice(cid string) (MSauth, error) {
 		if CodeResp.StatusCode == 400 {
 			PoolError, ok := CodeRes["error"].(string)
 			if !ok {
-				return auth, fmt.Errorf("While pooling token got this unknown json: %#v", CodeRes)
+				return auth, fmt.Errorf("while pooling token got this unknown json: %#v", CodeRes)
 			}
 			if PoolError == "authorization_pending" {
 				continue
 			}
 			if PoolError == "authorization_declined" {
-				return auth, errors.New("User declined authorization")
+				return auth, errors.New("user declined authorization")
 			}
 			if PoolError == "expired_token" {
-				return auth, errors.New("Turns out " + strconv.Itoa(int(PoolInterval)) + " seconds is not enough to authorize user, go faster ma monkey")
+				return auth, errors.New("turns out " + strconv.Itoa(int(PoolInterval)) + " seconds is not enough to authorize user, go faster ma monkey")
 			}
 			if PoolError == "invalid_grant" {
-				return auth, errors.New("While pooling token got invalid_grant error: " + CodeRes["error_description"].(string))
+				return auth, errors.New("while pooling token got invalid_grant error: " + CodeRes["error_description"].(string))
 			}
 		} else if CodeResp.StatusCode == 200 {
 			MSaccessToken, ok := CodeRes["access_token"].(string)
 			if !ok {
-				return auth, errors.New("Access token not found in response")
+				return auth, errors.New("access_token not found in response")
 			}
 			auth.AccessToken = MSaccessToken
 			MSrefreshToken, ok := CodeRes["refresh_token"].(string)
 			if !ok {
-				return auth, errors.New("Refresh token not found in response")
+				return auth, errors.New("refresh_token not found in response")
 			}
 			auth.RefreshToken = MSrefreshToken
 			MSexpireSeconds, ok := CodeRes["expires_in"].(float64)
 			if !ok {
-				return auth, errors.New("Expires in not found in response")
+				return auth, errors.New("expires_in not found in response")
 			}
 			auth.ExpiresAfter = time.Now().Unix() + int64(MSexpireSeconds)
 			return auth, nil
@@ -200,17 +204,17 @@ func AuthMSCode(code string, cid string) (MSauth, error) {
 	}
 	MSaccessToken, ok := MSres["access_token"].(string)
 	if !ok {
-		return auth, errors.New("Access_token not found in response")
+		return auth, errors.New("access_token not found in response")
 	}
 	auth.AccessToken = MSaccessToken
 	MSrefreshToken, ok := MSres["refresh_token"].(string)
 	if !ok {
-		return auth, errors.New("Refresh_token not found in response")
+		return auth, errors.New("refresh_token not found in response")
 	}
 	auth.RefreshToken = MSrefreshToken
 	MSexpireSeconds, ok := MSres["expires_in"].(float64)
 	if !ok {
-		return auth, errors.New("Expires_in not found in response")
+		return auth, errors.New("expires_in not found in response")
 	}
 	auth.ExpiresAfter = time.Now().Unix() + int64(MSexpireSeconds)
 	return auth, nil
@@ -259,7 +263,7 @@ func AuthXBL(MStoken string) (string, error) {
 	}
 	XBLtoken, ok := XBLres["Token"].(string)
 	if !ok {
-		return "", errors.New("Token not found in XBL response")
+		return "", errors.New("token not found in XBL response")
 	}
 	return XBLtoken, nil
 }
@@ -306,27 +310,27 @@ func AuthXSTS(XBLtoken string) (XSTSauth, error) {
 	}
 	XSTStoken, ok := XSTSres["Token"].(string)
 	if !ok {
-		return auth, errors.New("Could not find Token in XSTS response")
+		return auth, errors.New("could not find Token in XSTS response")
 	}
 	auth.Token = XSTStoken
 	XSTSdc, ok := XSTSres["DisplayClaims"].(map[string]interface{})
 	if !ok {
-		return auth, errors.New("Could not find DisplayClaims object in XSTS response")
+		return auth, errors.New("could not find DisplayClaims object in XSTS response")
 	}
 	XSTSxui, ok := XSTSdc["xui"].([]interface{})
 	if !ok {
-		return auth, errors.New("Could not find xui array in DisplayClaims object")
+		return auth, errors.New("could not find xui array in DisplayClaims object")
 	}
 	if len(XSTSxui) < 1 {
 		return auth, errors.New("xui array in DisplayClaims object does not have any elements")
 	}
 	XSTSuhsObject, ok := XSTSxui[0].(map[string]interface{})
 	if !ok {
-		return auth, errors.New("Could not get ush object in xui array")
+		return auth, errors.New("could not get ush object in xui array")
 	}
 	XSTSuhs, ok := XSTSuhsObject["uhs"].(string)
 	if !ok {
-		return auth, errors.New("Could not get uhs string from ush object")
+		return auth, errors.New("could not get uhs string from ush object")
 	}
 	auth.UHS = XSTSuhs
 	return auth, nil
@@ -369,12 +373,12 @@ func AuthMC(token XSTSauth) (MCauth, error) {
 	}
 	MCtoken, ok := MCres["access_token"].(string)
 	if !ok {
-		return auth, errors.New("Could not find access_token in MC response")
+		return auth, errors.New("could not find access_token in MC response")
 	}
 	auth.Token = MCtoken
 	MCexpire, ok := MCres["expires_in"].(float64)
 	if !ok {
-		return auth, errors.New("Could not find expires_in in MC response")
+		return auth, errors.New("could not find expires_in in MC response")
 	}
 	auth.ExpiresAfter = time.Now().Unix() + int64(MCexpire)
 	return auth, nil
@@ -403,12 +407,12 @@ func GetMCprofile(token string) (bot.Auth, error) {
 	}
 	PRuuid, ok := PRres["id"].(string)
 	if !ok {
-		return profile, errors.New("Could not find uuid in profile response")
+		return profile, errors.New("could not find uuid in profile response")
 	}
 	profile.UUID = PRuuid
 	PRname, ok := PRres["name"].(string)
 	if !ok {
-		return profile, errors.New("Could not find username in profile response")
+		return profile, errors.New("could not find username in profile response")
 	}
 	profile.Name = PRname
 	return profile, nil
