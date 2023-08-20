@@ -14,9 +14,16 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/Tnze/go-mc/bot"
 )
+
+// BotAuth is a literal replacement of Tnze's bot.Auth
+// One day he will go nuts and do something with it
+// and I don't feel like fixing it after him
+type BotAuth struct {
+	Name string
+	UUID string
+	AsTk string
+}
 
 // MSauth holds Microsoft auth credentials
 type MSauth struct {
@@ -383,9 +390,9 @@ func AuthMC(token XSTSauth) (MCauth, error) {
 	return auth, nil
 }
 
-// GetMCprofile Gets bot.Auth from token
-func GetMCprofile(token string) (bot.Auth, error) {
-	var profile bot.Auth
+// GetMCprofile Gets BotAuth from token
+func GetMCprofile(token string) (BotAuth, error) {
+	var profile BotAuth
 	PRreq, err := http.NewRequest("GET", "https://api.minecraftservices.com/minecraft/profile", nil)
 	if err != nil {
 		return profile, err
@@ -420,9 +427,9 @@ func GetMCprofile(token string) (bot.Auth, error) {
 // DefaultCacheFilename Used to load and save Microsoft auth because it gives token that lasts from a day to a week
 const DefaultCacheFilename = "./auth.cache"
 
-// GetMCcredentials From 0 to Minecraft bot.Auth with cache using device code flow
-func GetMCcredentials(CacheFilename, cid string) (bot.Auth, error) {
-	var resauth bot.Auth
+// GetMCcredentials From 0 to Minecraft BotAuth with cache using device code flow
+func GetMCcredentials(CacheFilename, cid string) (BotAuth, error) {
+	var resauth BotAuth
 	var MSa MSauth
 	if CacheFilename == "" {
 		CacheFilename = DefaultCacheFilename
