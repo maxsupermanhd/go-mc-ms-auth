@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -438,18 +437,13 @@ func GetMCcredentials(CacheFilename, cid string) (bot.Auth, error) {
 		if err != nil {
 			return resauth, err
 		}
-		err = ioutil.WriteFile(CacheFilename, tocache, 0600)
+		err = os.WriteFile(CacheFilename, tocache, 0600)
 		if err != nil {
 			return resauth, err
 		}
 		log.Println("Got an authorization token, trying to authenticate XBL...")
 	} else {
-		cachefile, err := os.Open(CacheFilename)
-		if err != nil {
-			return resauth, err
-		}
-		defer cachefile.Close()
-		cachecontent, err := ioutil.ReadAll(cachefile)
+		cachecontent, err := os.ReadFile(CacheFilename)
 		if err != nil {
 			return resauth, err
 		}
@@ -467,7 +461,7 @@ func GetMCcredentials(CacheFilename, cid string) (bot.Auth, error) {
 			if err != nil {
 				return resauth, err
 			}
-			err = ioutil.WriteFile(CacheFilename, tocache, 0600)
+			err = os.WriteFile(CacheFilename, tocache, 0600)
 			if err != nil {
 				return resauth, err
 			}
